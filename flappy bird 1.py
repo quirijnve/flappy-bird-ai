@@ -4,6 +4,7 @@ import time
 import os
 import random
 
+pygame.font.init()  # init font
 
 WIN_WIDTH = 500
 WIN_HEIGHT = 800
@@ -17,7 +18,7 @@ PIPE_IMG = pygame.transform.scale2x(pygame.image.load(os.path.join("E:/PY/files/
 BASE_IMG = pygame.transform.scale2x(pygame.image.load(os.path.join("E:/PY/files/flappy_bird/imgs", "base.png")))
 BG_IMG = pygame.transform.scale2x(pygame.image.load(os.path.join("E:/PY/files/flappy_bird/imgs", "bg.png")))
 
-
+STAT_FONT = pygame.font.SysFont("comicsansms", 40)
 
 class Bird:
 	IMGS = BIRD_IMGS
@@ -144,10 +145,10 @@ class Base:
 		self.x1 -= self.VEL #zo lijkt het dat de grond beweegt zonder een hele grote foto te hebben
 		self.x2 -= self.VEL
 
-		if self.x1 + self.WODTH < 0:
+		if self.x1 + self.WIDTH < 0:
 			self.x1 = self.x2 + self.WIDTH
 		
-		if self.x2 + self.WODTH < 0:
+		if self.x2 + self.WIDTH < 0:
 			self.x2 = self.x1 + self.WIDTH
 	
 	def draw(self, win):
@@ -157,31 +158,65 @@ class Base:
 
 
 
-
-
-
-def draw_window(window, bird):
+def draw_window(window, bird, pipes, base, score):
 	win.blit(BG_IMG, (0,0))  #blit betekend teken
+	for pipe in pipes:
+		pipe.draw(win)
+	
+	text = STAT_FONT.render("Score: " + str(score), 1,(255,255,255))
+	win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
+
+	base.draw(win)
 	bird.draw(win)
 	pygame.display.update()
 
 
 def main():
-    print('test1')
-    bird = Bird(200, 200)
-    clock = pygame.time.Clock()
+	bird = Bird(230, 350)
+	base = Base(730)
+	pipes = [Pipe(600)]
+	clock = pygame.time.Clock()
+	
+	score = 0
+	
+	run = True
+	while run:
+		clock.tick(30)
+		for event in pygame.event.get():
+			if event.type == pygame.QUIT:
+				pygame.quit()
+				quit()
+		
+		#bird.move()
+		add_pipe = False
+		rem = [] #lijst om dingen te verwijderen
+		
+		for pipe in pipes:
+			if pipe.collide(bird): #als botsing
+				pass
 
-    run = True
-    print("test")
-    while run:
-        clock.tick(30)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-        #bird.move()
-        draw_window(win, bird)
+			if pipe.x + pipe.PIPE_TOP.get_width() < 0: #als de pipe weg is van het scherm
+				rem.append(pipe) #verwijder pipe
+			
+			if not pipe.passed and pipe.x < bird.x: #kijkt of we langs de pipe zijn geweest, doorheen zijn gegaan
+				pipe.passed = True
+				add_pipe = True # maak een nieuwe pipe aan
+			
+			pipe.move()
 
-    pygame.quit()
-    quit()
+		if add_pipe:
+			score += 1 #score + 1
+			pipes.append(Pipe(600)) #maak nieuwe pipe op afstand van ()
+
+		for r in rem:
+			pipes.remove(r) 
+
+		if bird.y + bird.img.get_height() >= 730:
+			pass
+
+		base.move() #beweeg base
+		draw_window(win, bird, pipes, base, score)
+
+	pygame.quit()
+	quit()
 main()
