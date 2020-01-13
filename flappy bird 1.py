@@ -84,7 +84,81 @@ class Bird:
 		win.blit(rotated_image, new_rect.topleft)
 
 	def get_mask(self):
-		return pygame.mask.from_surface(self.img)
+		return pygame.mask.from_surface(self.img) #geeft een lijst waar pixels zijn in de foto
+
+class Pipe:
+	GAP = 200
+	VEL = 5
+
+	def __init__(self, x):
+		self.x = x
+		self.height = 0
+
+		self.top = 0  #variable voor waar bovenkant van pipe wordt getekend
+		self.bottom = 0 #en voor onderkant van pipe
+		self.PIPE_TOP = pygame.transform.flip(PIPE_IMG, False, True)  #foto van pipe opstekop voor boven
+		self.PIPE_BOTTOM = PIPE_IMG #foto voor beneden pipe
+
+		self.passed = False
+		self.set_height()
+	
+	def set_height(self):
+		self.height = random.randrange(50, 450)
+		self.top = self.height - self.PIPE_TOP.get_height() #zorgt ervoor dat de pipe in goed positie is want top left is de orgin van pijp
+		self.bottom = self.height + self.GAP
+	
+	def move(self):
+		self.x -= self.VEL #flappy gaat vooruit (pipe beweegt naar achter)
+
+	def draw(self, win): #teken boven en onder pipe
+		win.blit(self.PIPE_TOP, (self.x, self.top))
+		win.blit(self.PIPE_BOTTOM, (self.x, self.bottom))
+
+	def collide(self, bird):
+		bird_mask = bird.get_mask()
+		top_mask = pygame.mask.from_surface(self.PIPE_TOP) #geeft een lijst waar pixels zijn in de foto
+		bottom_mask = pygame.mask.from_surface(self.PIPE_BOTTOM) #geeft een lijst waar pixels zijn in de foto
+
+		top_offset = (self.x - bird.x, self.top - round(bird.y)) #berekend de afstand tussen de mask en orgin
+		bottom_offset = (self.x - bird.x, self.bottom - round(bird.y))
+
+		b_point = bird_mask.overlap(bottom_mask, bottom_offset) #vertelt het punt van waar de masks elkaar aanraken
+		t_point = bird_mask.overlap(top_mask, top_offset)
+
+		if t_point or b_point: #als b_point niet none doorgeevd dus ze botsen, return true, ander False
+			return True
+		
+		return False
+
+class Base:
+	VEL = 5
+	WIDTH = BASE_IMG.get_width()
+	IMG = BASE_IMG
+
+	def __init__ (self, y):
+		self.y = y
+		self.x1 = 0 #foto 1 start bij x = 0
+		self.x2 = self.WIDTH #foto 2 achter de eerste
+
+	def move(self): #we hebben 2 fotos van base achterelkaar, ze schuiven beide, als de eerste axter de y as komt, kleiner is dan 0 wordt die verplaatst naar achter de andere foto van de base,
+		self.x1 -= self.VEL #zo lijkt het dat de grond beweegt zonder een hele grote foto te hebben
+		self.x2 -= self.VEL
+
+		if self.x1 + self.WODTH < 0:
+			self.x1 = self.x2 + self.WIDTH
+		
+		if self.x2 + self.WODTH < 0:
+			self.x2 = self.x1 + self.WIDTH
+	
+	def draw(self, win):
+		win.blit(self.IMG, (self.x1, self.y))
+		win.blit(self.IMG, (self.x2, self.y))
+
+
+
+
+
+
 
 def draw_window(window, bird):
 	win.blit(BG_IMG, (0,0))  #blit betekend teken
@@ -105,7 +179,7 @@ def main():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-        bird.move()
+        #bird.move()
         draw_window(win, bird)
 
     pygame.quit()
