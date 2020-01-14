@@ -3,11 +3,15 @@ import neat
 import time
 import os
 import random
+import pickle
+
 
 pygame.font.init()  # init font
 
 WIN_WIDTH = 500
 WIN_HEIGHT = 800
+
+GEN = 0
 
 win = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
 
@@ -158,7 +162,7 @@ class Base:
 
 
 
-def draw_window(window, bird, pipes, base, score):
+def draw_window(window, birds, pipes, base, score, gen):
 	win.blit(BG_IMG, (0,0))  #blit betekend teken
 	for pipe in pipes:
 		pipe.draw(win)
@@ -166,18 +170,25 @@ def draw_window(window, bird, pipes, base, score):
 	text = STAT_FONT.render("Score: " + str(score), 1,(255,255,255))
 	win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))  #plaats waar de score moet staan
 
+	text = STAT_FONT.render("Gen: " + str(gen), 1,(255,255,255))
+	win.blit(text, (10, 10))
+
 	base.draw(win)
-	bird.draw(win)
+	for bird in birds:
+		bird.draw(win)
+	
 	pygame.display.update()
 
 
 def main(genomes, config):
+	global GEN
+	GEN += 1
 	nets = []
 	ge = []
 	birds = []
 
-	for g in genomes: #meerdere genomes zijn neuralnetworks
-		net = neat.nn.FeedForwardNetwork(g, config) #maken nuralnetwork aan voor genome
+	for _, g in genomes: #meerdere genomes zijn neuralnetworks
+		net = neat.nn.FeedForwardNetwork.create(g, config) #maken nuralnetwork aan voor genome
 		nets.append(net)	#voegen het toe aan de lijst
 		birds.append(Bird(230, 350))	#voeg bird ook aan de lijst
 		g.fitness = 0
@@ -194,8 +205,26 @@ def main(genomes, config):
 		clock.tick(30)
 		for event in pygame.event.get():
 			if event.type == pygame.QUIT:
+				run = False
 				pygame.quit()
 				quit()
+		
+		pipe_ind = 0
+		if len(birds) > 0:
+			if len(pipes) > 1 and birds[0].x > pipes[0].x + pipes[0].PIPE_TOP.get_width(): #kijkt naar welke pipe de neural network moet kijken
+				pipe_ind = 1
+		else:
+			run = False #als er geen vogels meer zijn stop
+			break
+
+		for x, bird in enumerate(birds):
+			bird.move()
+			ge[x].fitness += 0.1  # geeft bird 1 fitnespoint per seconde
+
+			output = nets[x].activate((bird.y, abs(bird.y - pipes[pipe_ind].height), abs(bird.y - pipes[pipe_ind].bottom))) #geeft output
+
+			if output[0] > 0.5: #als output boven 0.5 is Spring
+				bird.jump()
 		
 		#bird.move()
 		add_pipe = False
@@ -221,27 +250,30 @@ def main(genomes, config):
 
 		if add_pipe:
 			score += 1 #score + 1
+			for g in ge:
+				g.fitness += 5 # als een bird door eenn pipe gaat krijgt ie 5 punter bij zn fitness
 			pipes.append(Pipe(600)) #maak nieuwe pipe op afstand van ()
 
 		for r in rem:
 			pipes.remove(r) 
 
-		for bird in birds:
-			if bird.y + bird.img.get_height() >= 730:
-				pass
+		for x, bird in enumerate(birds):
+			if bird.y + bird.img.get_height() >= 730 or bird.y < 0:
+				birds.pop(x)
+				nets.pop(x)
+				ge.pop(x)  #haalt bird weg als die grond raakt of plafond
 
 		base.move() #beweeg base
-		draw_window(win, bird, pipes, base, score)
+		draw_window(win, birds, pipes, base, score, GEN)
 
-	pygame.quit()
-	quit()
 
-main()
+
+
 
 def run(config_path):
 	config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
 						 neat.DefaultSpeciesSet, neat.DefaultStagnation,
-						 config_file)  #geeft de belangrijke instellingen van Neat
+						 config_path)  #geeft de belangrijke instellingen van Neat
 
 	p = neat.Population(config)	 #creeert population
 
@@ -249,10 +281,11 @@ def run(config_path):
 	stats = neat.StatisticsReporter()
 	p.add_reporter(stats)
 
-	winner = p.run(main,50) #hoeveelheid generations in fitnesfunction 
+	winner = p.run(main,10000) #hoeveelheid generations in fitnesfunction 
+
 
 
 if __name__ == "__main__":
-	local_dir = os.path.dirname(__file__)
-	config_path = os.path.join(local_dir, "config-feedforward")
+	local_dir = "E:/PY/files/flappy_bird/"
+	config_path = os.path.join(local_dir, "config-feedforward.txt")
 	run(config_path)
