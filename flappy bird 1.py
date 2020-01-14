@@ -164,15 +164,25 @@ def draw_window(window, bird, pipes, base, score):
 		pipe.draw(win)
 	
 	text = STAT_FONT.render("Score: " + str(score), 1,(255,255,255))
-	win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
+	win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))  #plaats waar de score moet staan
 
 	base.draw(win)
 	bird.draw(win)
 	pygame.display.update()
 
 
-def main():
-	bird = Bird(230, 350)
+def main(genomes, config):
+	nets = []
+	ge = []
+	birds = []
+
+	for g in genomes: #meerdere genomes zijn neuralnetworks
+		net = neat.nn.FeedForwardNetwork(g, config) #maken nuralnetwork aan voor genome
+		nets.append(net)	#voegen het toe aan de lijst
+		birds.append(Bird(230, 350))	#voeg bird ook aan de lijst
+		g.fitness = 0
+		ge.append(g)  #genoma ook toevoegen aan de lijst
+
 	base = Base(730)
 	pipes = [Pipe(600)]
 	clock = pygame.time.Clock()
@@ -192,16 +202,21 @@ def main():
 		rem = [] #lijst om dingen te verwijderen
 		
 		for pipe in pipes:
-			if pipe.collide(bird): #als botsing
-				pass
-
+			for x, bird in enumerate(birds):
+				if pipe.collide(bird): #als botsing
+					ge[x]. fitness -= 1 #zorgt ervoor als een bird een pipe raakt gaat zijn fitness score omlaag
+					birds.pop(x)
+					nets.pop(x)
+					ge.pop(x) #zorgt ervoor dat ale een bird een pipe raakt verwijderd wordt
+			
+				if not pipe.passed and pipe.x < bird.x: #kijkt of we langs de pipe zijn geweest, doorheen zijn gegaan
+					pipe.passed = True 
+					add_pipe = True # maak een nieuwe pipe aan
+			
 			if pipe.x + pipe.PIPE_TOP.get_width() < 0: #als de pipe weg is van het scherm
 				rem.append(pipe) #verwijder pipe
-			
-			if not pipe.passed and pipe.x < bird.x: #kijkt of we langs de pipe zijn geweest, doorheen zijn gegaan
-				pipe.passed = True
-				add_pipe = True # maak een nieuwe pipe aan
-			
+
+
 			pipe.move()
 
 		if add_pipe:
@@ -211,12 +226,33 @@ def main():
 		for r in rem:
 			pipes.remove(r) 
 
-		if bird.y + bird.img.get_height() >= 730:
-			pass
+		for bird in birds:
+			if bird.y + bird.img.get_height() >= 730:
+				pass
 
 		base.move() #beweeg base
 		draw_window(win, bird, pipes, base, score)
 
 	pygame.quit()
 	quit()
+
 main()
+
+def run(config_path):
+	config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+						 neat.DefaultSpeciesSet, neat.DefaultStagnation,
+						 config_file)  #geeft de belangrijke instellingen van Neat
+
+	p = neat.Population(config)	 #creeert population
+
+	p.add_reporter(neat.StdOutReporter(True)) #geeft statestieken in console
+	stats = neat.StatisticsReporter()
+	p.add_reporter(stats)
+
+	winner = p.run(main,50) #hoeveelheid generations in fitnesfunction 
+
+
+if __name__ == "__main__":
+	local_dir = os.path.dirname(__file__)
+	config_path = os.path.join(local_dir, "config-feedforward")
+	run(config_path)
